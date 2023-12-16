@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     azurerm = {
-      source  = "hashicorp/azurerm"
+      source = "hashicorp/azurerm"
     }
     acme = {
       source  = "vancluever/acme"
@@ -42,18 +42,21 @@ resource "azurerm_subnet" "public1" {
   address_prefixes     = [cidrsubnet(var.vnet_cidr, 8, 1)]
 }
 
-resource "azurerm_subnet" "public2" {
-  name                 = "${var.tag_prefix}-public2"
-  resource_group_name  = azurerm_resource_group.tfe.name
-  virtual_network_name = azurerm_virtual_network.tfe.name
-  address_prefixes     = [cidrsubnet(var.vnet_cidr, 8, 2)]
-}
-
 resource "azurerm_subnet" "private1" {
   name                 = "${var.tag_prefix}-private1"
   resource_group_name  = azurerm_resource_group.tfe.name
   virtual_network_name = azurerm_virtual_network.tfe.name
   address_prefixes     = [cidrsubnet(var.vnet_cidr, 8, 11)]
+  service_endpoints    = ["Microsoft.Storage"]
+  delegation {
+    name = "fs"
+    service_delegation {
+      name = "Microsoft.DBforPostgreSQL/flexibleServers"
+      actions = [
+        "Microsoft.Network/virtualNetworks/subnets/join/action",
+      ]
+    }
+  }
 }
 
 resource "azurerm_network_security_group" "tfe" {
@@ -109,29 +112,6 @@ resource "azurerm_network_security_group" "tfe" {
     destination_address_prefix = "*"
   }
 
-  # security_rule {
-  #   name                       = "applicationgateway"
-  #   priority                   = "140"
-  #   direction                  = "Inbound"
-  #   access                     = "Allow"
-  #   protocol                   = "Tcp"
-  #   source_port_range          = "*"
-  #   destination_port_range     = "65200-65535"
-  #   source_address_prefix      = "*"
-  #   destination_address_prefix = "*"
-  # }
-
-  security_rule {
-    name                       = "dashboard"
-    priority                   = "150"
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "8800"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
 }
 
 resource "azurerm_subnet_network_security_group_association" "tfe-public1" {
@@ -139,18 +119,8 @@ resource "azurerm_subnet_network_security_group_association" "tfe-public1" {
   network_security_group_id = azurerm_network_security_group.tfe.id
 }
 
-resource "azurerm_subnet_network_security_group_association" "tfe-public2" {
-  subnet_id                 = azurerm_subnet.public2.id
-  network_security_group_id = azurerm_network_security_group.tfe.id
-}
-
 resource "azurerm_subnet_network_security_group_association" "tfe-private1" {
   subnet_id                 = azurerm_subnet.private1.id
-  network_security_group_id = azurerm_network_security_group.tfe.id
-}
-
-resource "azurerm_subnet_network_security_group_association" "tfe-private2" {
-  subnet_id                 = azurerm_subnet.private2.id
   network_security_group_id = azurerm_network_security_group.tfe.id
 }
 
@@ -163,13 +133,6 @@ resource "azurerm_public_ip" "tfe" {
   zones               = ["1"]
 }
 
-# resource "azurerm_public_ip_prefix" "tfe" {
-#   name                = "${var.tag_prefix}-nat-publicIPPrefix"
-#   location            = azurerm_resource_group.tfe.location
-#   resource_group_name = azurerm_resource_group.tfe.name
-#   prefix_length       = 30
-#   zones               = ["1"]
-# }
 
 resource "azurerm_nat_gateway" "tfe" {
   name                    = "${var.tag_prefix}-nat-Gateway"
@@ -190,38 +153,13 @@ resource "azurerm_subnet_nat_gateway_association" "tfe_private1" {
   nat_gateway_id = azurerm_nat_gateway.tfe.id
 }
 
-resource "azurerm_subnet_nat_gateway_association" "tfe_private2" {
-  subnet_id      = azurerm_subnet.private2.id
-  nat_gateway_id = azurerm_nat_gateway.tfe.id
-}
-
-
-resource "azurerm_subnet" "private2" {
-  name                 = "${var.tag_prefix}-private2"
-  resource_group_name  = azurerm_resource_group.tfe.name
-  virtual_network_name = azurerm_virtual_network.tfe.name
-  address_prefixes     = [cidrsubnet(var.vnet_cidr, 8, 12)]
-  service_endpoints    = ["Microsoft.Storage"]
-  delegation {
-    name = "fs"
-    service_delegation {
-      name = "Microsoft.DBforPostgreSQL/flexibleServers"
-      actions = [
-        "Microsoft.Network/virtualNetworks/subnets/join/action",
-      ]
-    }
-  }
-}
-
 resource "azurerm_private_dns_zone" "example" {
-  name                = "${var.tag_prefix}.postgres.database.azure.com"
-  # name                = "tfe24.postgres.database.azure.com"
+  name = "${var.tag_prefix}.postgres.database.azure.com"
   resource_group_name = azurerm_resource_group.tfe.name
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "example" {
-  name                  = "${var.tag_prefix}"
-  # name                  = "tfe24"
+  name = var.tag_prefix
   private_dns_zone_name = azurerm_private_dns_zone.example.name
   virtual_network_id    = azurerm_virtual_network.tfe.id
   resource_group_name   = azurerm_resource_group.tfe.name
@@ -232,7 +170,7 @@ resource "azurerm_postgresql_flexible_server" "example" {
   resource_group_name    = azurerm_resource_group.tfe.name
   location               = azurerm_resource_group.tfe.location
   version                = "12"
-  delegated_subnet_id    = azurerm_subnet.private2.id
+  delegated_subnet_id    = azurerm_subnet.private1.id
   private_dns_zone_id    = azurerm_private_dns_zone.example.id
   administrator_login    = var.postgres_user
   administrator_password = var.postgres_password
@@ -257,7 +195,6 @@ resource "azurerm_postgresql_flexible_server_configuration" "example" {
   server_id = azurerm_postgresql_flexible_server.example.id
   value     = "CITEXT,HSTORE,UUID-OSSP"
 }
-
 
 resource "azurerm_storage_account" "example" {
   name                     = var.storage_account
@@ -288,7 +225,6 @@ resource "azurerm_public_ip" "client" {
   zones               = ["1"]
 }
 
-
 resource "azurerm_network_interface" "client" {
   name                = "${var.tag_prefix}-client"
   location            = azurerm_resource_group.tfe.location
@@ -302,13 +238,11 @@ resource "azurerm_network_interface" "client" {
   }
 }
 
-
-
 resource "azurerm_linux_virtual_machine" "client" {
   name                = "${var.tag_prefix}-client"
   resource_group_name = azurerm_resource_group.tfe.name
   location            = azurerm_resource_group.tfe.location
-  size                = "Standard_F2"
+  size                = "Standard_D4s_v3"
   admin_username      = "adminuser"
   network_interface_ids = [
     azurerm_network_interface.client.id,
@@ -326,9 +260,9 @@ resource "azurerm_linux_virtual_machine" "client" {
 
   source_image_reference {
     publisher = "Canonical"
-    offer     = "0001-com-ubuntu-server-focal"
-    sku       = "20_04-lts"
-    version   = "20.04.202211151"
+    offer     = "0001-com-ubuntu-server-jammy"
+    sku       = "22_04-lts-gen2"
+    version   = "22.04.202312060"
   }
 }
 
@@ -340,8 +274,6 @@ resource "azurerm_public_ip" "tfe_instance" {
   sku                 = "Standard"
   zones               = ["1"]
 }
-
-
 
 resource "azurerm_network_interface" "tfe" {
   name                = "${var.tag_prefix}-tfe"
@@ -356,7 +288,6 @@ resource "azurerm_network_interface" "tfe" {
   }
 }
 
-
 resource "azurerm_linux_virtual_machine" "tfe" {
   name                = "${var.tag_prefix}-tfe"
   resource_group_name = azurerm_resource_group.tfe.name
@@ -369,23 +300,21 @@ resource "azurerm_linux_virtual_machine" "tfe" {
   ]
 
   custom_data = base64encode(templatefile("${path.module}/scripts/cloudinit_tfe_server.yaml", {
-    tag_prefix           = var.tag_prefix
-    filename_license     = filebase64("${path.module}/files/${var.filename_license}")
-    dns_hostname         = var.dns_hostname
-    tfe-private-ip       = azurerm_network_interface.tfe.private_ip_address
-    tfe-public-ip        = azurerm_public_ip.tfe_instance.ip_address
-    tfe_password         = var.tfe_password
-    postgres_user        = var.postgres_user
-    postgres_fqdn        = azurerm_postgresql_flexible_server.example.fqdn
-    dns_zonename         = var.dns_zonename
-    postgres_password    = var.postgres_password
-    tfe_release_sequence = var.tfe_release_sequence
-    certificate_pem      = base64encode(lookup(acme_certificate.certificate, "certificate_pem"))
-    issuer_pem           = base64encode(lookup(acme_certificate.certificate, "issuer_pem"))
-    private_key_pem      = base64encode(lookup(acme_certificate.certificate, "private_key_pem"))
-    container_name       = azurerm_storage_container.example.name
-    storage_account      = azurerm_storage_account.example.name
-    storage_account_key      = azurerm_storage_account.example.primary_access_key
+    tag_prefix   = var.tag_prefix
+    dns_hostname = var.dns_hostname
+    tfe_password        = var.tfe_password
+    postgres_user       = var.postgres_user
+    postgres_fqdn       = azurerm_postgresql_flexible_server.example.fqdn
+    dns_zonename        = var.dns_zonename
+    postgres_password   = var.postgres_password
+    tfe_release         = var.tfe_release
+    tfe_license         = var.tfe_license
+    certificate_email   = var.certificate_email
+    full_chain          = base64encode("${acme_certificate.certificate.certificate_pem}${acme_certificate.certificate.issuer_pem}")
+    private_key_pem     = base64encode(lookup(acme_certificate.certificate, "private_key_pem"))
+    container_name      = azurerm_storage_container.example.name
+    storage_account     = azurerm_storage_account.example.name
+    storage_account_key = azurerm_storage_account.example.primary_access_key
   }))
 
 
@@ -401,8 +330,10 @@ resource "azurerm_linux_virtual_machine" "tfe" {
 
   source_image_reference {
     publisher = "Canonical"
-    offer     = "0001-com-ubuntu-server-focal"
-    sku       = "20_04-lts"
-    version   = "20.04.202211151"
+    offer     = "0001-com-ubuntu-server-jammy"
+    sku       = "22_04-lts-gen2"
+    version   = "22.04.202312060"
   }
+
+  depends_on = [azurerm_postgresql_flexible_server.example]
 }

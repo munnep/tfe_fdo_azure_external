@@ -37,16 +37,16 @@ variable "dns_zonename" {
   description = "DNS zone the record should be created in"
 }
 
-variable "filename_license" {
-  description = "filename of your license located under directory files"
+variable "tfe_release" {
+  description = "Which release version of TFE to install"
 }
 
-variable "tfe_release_sequence" {
-  description = "the TFE release sequence you want to install"
+variable "tfe_license" {
+  description = "the TFE license as a string"
 }
 
 variable "region" {
-  description = "aws region for the DNS records"
+  description = "region to create the environment"
 }
 
 variable "certificate_email" {
