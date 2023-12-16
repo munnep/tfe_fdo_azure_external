@@ -37,7 +37,7 @@ git clone https://github.com/munnep/tfe_fdo_azure_external.git
 ```sh
 cd tfe_fdo_azure_external
 ```
-- - create a file called `variables.auto.tfvars` with the following contents and your own values
+- create a file called `variables.auto.tfvars` with the following contents and your own values
 ```
 # General
 tag_prefix        = "tfe22"                       # TAG prefix for names to easily find your AWS resources
