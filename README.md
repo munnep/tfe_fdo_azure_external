@@ -1,4 +1,4 @@
-# TFE with SSO
+# TFE FDO docker on Azure
 
 This repository will create a TFE FDO External configuration in Azure
 
