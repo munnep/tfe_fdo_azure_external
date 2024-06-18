@@ -175,6 +175,8 @@ resource "azurerm_postgresql_flexible_server" "example" {
   administrator_login    = var.postgres_user
   administrator_password = var.postgres_password
   zone                   = "1"
+  public_network_access_enabled = false
+  
 
   storage_mb = 32768
 
