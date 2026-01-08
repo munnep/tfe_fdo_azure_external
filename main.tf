@@ -12,6 +12,7 @@ terraform {
 
 provider "azurerm" {
   features {}
+  subscription_id = var.azure_subscription_id
 }
 
 provider "aws" {
@@ -154,29 +155,29 @@ resource "azurerm_subnet_nat_gateway_association" "tfe_private1" {
 }
 
 resource "azurerm_private_dns_zone" "example" {
-  name = "${var.tag_prefix}.postgres.database.azure.com"
+  name                = "${var.tag_prefix}.postgres.database.azure.com"
   resource_group_name = azurerm_resource_group.tfe.name
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "example" {
-  name = var.tag_prefix
+  name                  = var.tag_prefix
   private_dns_zone_name = azurerm_private_dns_zone.example.name
   virtual_network_id    = azurerm_virtual_network.tfe.id
   resource_group_name   = azurerm_resource_group.tfe.name
 }
 
 resource "azurerm_postgresql_flexible_server" "example" {
-  name                   = "${var.tag_prefix}-psqlflexibleserver"
-  resource_group_name    = azurerm_resource_group.tfe.name
-  location               = azurerm_resource_group.tfe.location
-  version                = "12"
-  delegated_subnet_id    = azurerm_subnet.private1.id
-  private_dns_zone_id    = azurerm_private_dns_zone.example.id
-  administrator_login    = var.postgres_user
-  administrator_password = var.postgres_password
-  zone                   = "1"
+  name                          = "${var.tag_prefix}-psqlflexibleserver"
+  resource_group_name           = azurerm_resource_group.tfe.name
+  location                      = azurerm_resource_group.tfe.location
+  version                       = "15"
+  delegated_subnet_id           = azurerm_subnet.private1.id
+  private_dns_zone_id           = azurerm_private_dns_zone.example.id
+  administrator_login           = var.postgres_user
+  administrator_password        = var.postgres_password
+  zone                          = "1"
   public_network_access_enabled = false
-  
+
 
   storage_mb = 32768
 
@@ -212,9 +213,34 @@ resource "azurerm_storage_account" "example" {
 
 }
 
+locals {
+  tfe_os_normalized = lower(var.tfe_os)
+
+  # Azure Marketplace image references
+  # Ubuntu: pinned version as before
+  # RedHat: use 'latest' so it stays current
+  image_references = {
+    ubuntu = {
+      publisher = "Canonical"
+      offer     = "0001-com-ubuntu-server-jammy"
+      sku       = "22_04-lts-gen2"
+      version   = "22.04.202312060"
+    }
+    redhat = {
+      publisher = "RedHat"
+      offer     = "RHEL"
+      sku       = "9-lvm-gen2"
+      version   = "latest"
+    }
+  }
+
+  selected_image = local.image_references[local.tfe_os_normalized]
+}
+
+
 resource "azurerm_storage_container" "example" {
   name                  = "${var.tag_prefix}-container"
-  storage_account_name  = azurerm_storage_account.example.name
+  storage_account_id    = azurerm_storage_account.example.id
   container_access_type = "private"
 }
 
@@ -301,9 +327,9 @@ resource "azurerm_linux_virtual_machine" "tfe" {
     azurerm_network_interface.tfe.id,
   ]
 
-  custom_data = base64encode(templatefile("${path.module}/scripts/cloudinit_tfe_server.yaml", {
-    tag_prefix   = var.tag_prefix
-    dns_hostname = var.dns_hostname
+  custom_data = base64encode(templatefile("${path.module}/scripts/cloudinit_tfe_server_${var.tfe_os}.yaml", {
+    tag_prefix          = var.tag_prefix
+    dns_hostname        = var.dns_hostname
     tfe_password        = var.tfe_password
     postgres_user       = var.postgres_user
     postgres_fqdn       = azurerm_postgresql_flexible_server.example.fqdn
@@ -331,10 +357,10 @@ resource "azurerm_linux_virtual_machine" "tfe" {
   }
 
   source_image_reference {
-    publisher = "Canonical"
-    offer     = "0001-com-ubuntu-server-jammy"
-    sku       = "22_04-lts-gen2"
-    version   = "22.04.202312060"
+    publisher = local.selected_image.publisher
+    offer     = local.selected_image.offer
+    sku       = local.selected_image.sku
+    version   = local.selected_image.version
   }
 
   depends_on = [azurerm_postgresql_flexible_server.example]

@@ -2,6 +2,11 @@
 
 This repository will create a TFE FDO External configuration in Azure
 
+The choice of operating system will also determine if you are using `docker` or `podman`
+
+- `tfe_os = "ubuntu"`: installs and runs Terraform Enterprise using **Docker** 
+- `tfe_os = "redhat"`: installs and runs Terraform Enterprise using **Podman** 
+
 # Diagram
 
 ![](diagram/diagram_tfe_fdo_azure_external.png)  
@@ -40,21 +45,23 @@ cd tfe_fdo_azure_external
 - create a file called `variables.auto.tfvars` with the following contents and your own values
 ```
 # General
-tag_prefix        = "tfe22"                       # TAG prefix for names to easily find your AWS resources
-dns_hostname      = "tfe22"                       # DNS hostname for the TFE
-dns_zonename      = "aws.munnep.com"              # DNS zone name to be used
-tfe_release       = "v202312-1"                   # Version number for the release to install. This must have a value
-tfe_password      = "Password#1"                  # TFE password for the dashboard and encryption of the data
-public_key        = "ssh-rsa AAAAB3NzaN"          # The public key for you to connect to the server over SSH
-certificate_email = "patrick.munne@hashicorp.com" # Your email address used by TLS certificate 
-tfe_license       = "02MV4UU43BK5HGYYTOJZ"        # license file being used
-# AWS
-region            = "eu-north-1"                   # AWS region creating the DNS records
-# Azure
-vnet_cidr         = "10.214.0.0/16"                # Network to be used
-postgres_user     = "tfe"                          # PostgreSQL admin user to be created and used by TFE
-postgres_password = "Password#1"                   # PostgreSQL admin password to be used
-storage_account   = "tfe22patrick"                 # Name of the storage account to be created unique in the world
+tag_prefix            = "tfe22"                       # TAG prefix for names to easily find your AWS resources
+dns_hostname          = "tfe22"                       # DNS hostname for the TFE
+dns_zonename          = "aws.munnep.com"              # DNS zone name to be used
+tfe_release           = "v202312-1"                   # Version number for the release to install. This must have a value
+tfe_password          = "Password#1"                  # TFE password for the dashboard and encryption of the data
+public_key            = "ssh-rsa AAAAB3NzaN"          # The public key for you to connect to the server over SSH
+certificate_email     = "patrick.munne@hashicorp.com" # Your email address used by TLS certificate 
+tfe_license           = "02MV4UU43BK5HGYYTOJZ"        # license file being used
+# AWS    
+region                = "eu-north-1"                   # AWS region creating the DNS records
+# Azure    
+vnet_cidr             = "10.214.0.0/16"                # Network to be used
+postgres_user         = "tfe"                          # PostgreSQL admin user to be created and used by TFE
+postgres_password     = "Password#1"                   # PostgreSQL admin password to be used
+storage_account       = "tfe22patrick"                 # Name of the storage account to be created unique in the world
+azure_subscription_id = "00000000-0000-0000-0000-000000000000" # Azure subscription ID to be used
+tfe_os                = "ubuntu"                       # OS for the TFE server (ubuntu = Docker, redhat = Podman)
 ```
 - Terraform initialize
 ```

@@ -214,7 +214,7 @@ write_files:
       pushd /opt/tfe/
       
       echo "Get initial activation token"
-      INITIAL_TOKEN=`docker compose exec tfe retrieve-iact`
+      INITIAL_TOKEN=`docker compose exec tfe tfectl admin token`
       
       # get the admin token you can user to create the first user
       # Create the first user called admin and get the token
