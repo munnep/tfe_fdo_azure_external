@@ -61,6 +61,7 @@ postgres_user         = "tfe"                          # PostgreSQL admin user t
 postgres_password     = "Password#1"                   # PostgreSQL admin password to be used
 storage_account       = "tfe22patrick"                 # Name of the storage account to be created unique in the world
 azure_subscription_id = "00000000-0000-0000-0000-000000000000" # Azure subscription ID to be used
+azure_images_subscription_id = "00000000-0000-0000-0000-000000000000" # Azure subscription ID where the images are located. Approved by IBM
 tfe_os                = "ubuntu"                       # OS for the TFE server (ubuntu = Docker, redhat = Podman)
 ```
 - Terraform initialize

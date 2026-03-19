@@ -19,6 +19,10 @@ variable "tfe_os" {
   }
 }
 
+variable "azure_images_subscription_id" {
+  description = "azure subscription id where the images are located that has to be used by IBM"
+}
+
 variable "postgres_user" {
   description = "postgresql user"
 }
